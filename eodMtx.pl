@@ -17,7 +17,8 @@ my $dataInizio	    = DateTime->new(year=>2020, month=>3, day=>1);
 my $ip      = '10.11.14.128';
 my $user    = 'root';
 my $pw      = 'mela';
-my $dbh = DBI->connect("DBI:mysql:mysql:$ip", $user, $pw);
+#my $dbh = DBI->connect("DBI:mysql:mysql:$ip", $user, $pw);
+my $dbh = DBI->connect("dbi:ODBC:Driver={MySQL ODBC 5.3 Unicode Driver};Server=$ip;UID=$user;PWD=$pw");
 if (! $dbh) {
     die "Errore durante la connessione al database Quadrature ($ip)!\n";
 }
@@ -63,7 +64,8 @@ if ($sth->execute()) {
 my $ipDbArchivi    = '10.11.14.78';
 my $userDbArchivi  = 'root';
 my $pwDbArchivi    = 'mela';
-my $dbhArchivi = DBI->connect("DBI:mysql:mysql:$ipDbArchivi", $userDbArchivi, $pwDbArchivi);
+#my $dbhArchivi = DBI->connect("DBI:mysql:mysql:$ipDbArchivi", $userDbArchivi, $pwDbArchivi);
+my $dbhArchivi = DBI->connect("dbi:ODBC:Driver={MySQL ODBC 5.3 Unicode Driver};Server=$ipDbArchivi;UID=$userDbArchivi;PWD=$pwDbArchivi");
 if (! $dbhArchivi) {
     die "Errore durante la connessione al database Archivi ($ipDbArchivi)!\n";
 }
