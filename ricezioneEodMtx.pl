@@ -114,7 +114,7 @@ my %negoziDettagli = (
 );
 
 my @negozi = keys %negoziDettagli;
-
+#ciao Marco
 my $semaforo = 0;
 my $dbh = DBI->connect("dbi:ODBC:Driver={MySQL ODBC 5.3 Unicode Driver};Server=localhost;UID=root;PWD=mela");
 my $sth = $dbh->prepare("select ifnull(count(*),0) from `log`.`semaforo` where tipo =  10");
