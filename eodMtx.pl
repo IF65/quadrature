@@ -9,7 +9,7 @@ use DateTime;
 # date
 #------------------------------------------------------------------------------------------------------------
 my $dataCorrente 	= DateTime->now(time_zone=>'CET');
-#my $oraCorrente 	= DateTime->now(time_zone=>'local');
+my $oraCorrente 	= DateTime->now(time_zone=>'CET');
 my $dataInizio	    = DateTime->new(year=>2020, month=>3, day=>1);
 
 # connessione al database quadrature per recuperare l'a lista dei negozi'ultima data caricata
