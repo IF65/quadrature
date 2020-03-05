@@ -17,27 +17,27 @@ my $dataCorrente 	= DateTime->now(time_zone=>'CET');
 my $oraCorrente 	= DateTime->now(time_zone=>'CET');
 my $dataInizio	    = DateTime->new(year=>2020, month=>3, day=>1);
 
-# connessione al database quadrature per recuperare l'a lista dei negozi'ultima data caricata
+# connessione al database quadrature per recuperare la lista dei negozi
 #------------------------------------------------------------------------------------------------------------
 my $ip      = '10.11.14.128';
 my $user    = 'root';
 my $pw      = 'mela';
-my $dbh = DBI->connect("DBI:mysql:mysql:$ip", $user, $pw);
-#my $dbh = DBI->connect("dbi:ODBC:Driver={MySQL ODBC 5.3 Unicode Driver};Server=$ip;UID=$user;PWD=$pw");
+#my $dbh = DBI->connect("DBI:mysql:mysql:$ip", $user, $pw);
+my $dbh = DBI->connect("dbi:ODBC:Driver={MySQL ODBC 5.3 Unicode Driver};Server=$ip;UID=$user;PWD=$pw");
 if (! $dbh) {
     die "Errore durante la connessione al database Quadrature ($ip)!\n";
 }
 
 my $semaforo = 0;
 my $sth = $dbh->prepare("select ifnull(count(*),0) from `log`.`semaforo` where tipo =  1");
-#if ($sth->execute()) {
-#    $semaforo = $sth->fetchrow_array();
-#}
+if ($sth->execute()) {
+    $semaforo = $sth->fetchrow_array();
+}
 $sth->finish();
 
 if (! $semaforo) {
     $sth = $dbh->prepare("insert into `log`.`semaforo` (`tipo`,`stato`) values (1, 100)");
-    #$sth->execute();
+    $sth->execute();
     $sth->finish();
     
     # cerco le date in cui ci siano giornate da caricare
@@ -63,19 +63,19 @@ if (! $semaforo) {
         
         my @thr =();
         for (my $i=0; $i<@negozi; $i++) {
-        #    push @thr, threads->create('GetFiles', $negozi[$i], $negoziDaCaricare{$negozi[$i]}{'ip'});
-            &GetFiles('0134', '11.0.34.11', $_); #DEBUG ONLY
+            push @thr, threads->create('GetFiles', $negozi[$i], $negoziDaCaricare{$negozi[$i]}{'ip'}, $_);
+            #&GetFiles('0134', '11.0.34.11', $_); #DEBUG ONLY
         }
         
         #con l'istruzione join faccio in modo che l'esecuzione aspetti fino a che l'ultimo thread sia terminato
         for (my $j=0; $j<@thr; $j++) {
-        #    $thr[$j]->join();
+            $thr[$j]->join();
         }
     }
    
-    #$sth = $dbh->prepare("delete from `log`.`semaforo` where tipo = 1;");
-    #$sth->execute();
-    #$sth->finish();
+    $sth = $dbh->prepare("delete from `log`.`semaforo` where tipo = 1;");
+    $sth->execute();
+    $sth->finish();
 }
 
 $dbh->disconnect();
@@ -88,6 +88,7 @@ sub GetFiles {
     my $dbh;
     my $sth;
     
+    #print "inizio: $negozio, $dataInUso, $ip\n";
     # connessione al database di sede
     $dbh = DBI->connect("dbi:ODBC:Driver={MySQL ODBC 5.3 Unicode Driver};Server=localhost;UID=root;PWD=mela");
     if (! $dbh) {
@@ -97,7 +98,7 @@ sub GetFiles {
     
     my $maxSequenceNumber = -1;
     $sth = $dbh->prepare(qq{select ifnull(max(sequencenumber),0) max_sequence_number from mtx.idc where ddate = ? and store = ?;});
-    if ($sth->execute($dataCorrente->ymd('-'),$negozio)) {
+    if ($sth->execute($dataInUso,$negozio)) {
         $maxSequenceNumber = $sth->fetchrow_array();
     }
     $sth->finish();
@@ -107,17 +108,46 @@ sub GetFiles {
         $mtxDbh->{PrintError} = 0;
         $mtxDbh->do("use mtx");
         
-        # controllo se ci sono record nella IDC. Se non li trovo la giornata  chiusa e cerco nella IDC_EOD
+        # controllo se ci sono record nella IDC. Se non li trovo la giornata è chiusa e cerco nella IDC_EOD
         my $status = 0;
         my $tableInUse = 'IDC';
-        
-        my $sql = "select count(*) from IDC where DDATE = ? ";
-        my $mtxSth = $mtxDbh->prepare($sql);
-        if ($mtxSth->execute($dataInUso)) {
-            $status = 1; # negozio chiusura effettuata
+        if ($dataInUso ne $dataCorrente->ymd('-')) {
+            $status = 1;
             $tableInUse = 'IDC_EOD';
         }
-        $sql ="	select top 10000
+        if ($status == 0) {
+            my $mtxSth = $mtxDbh->prepare("select isnull(count(*), 0) from IDC where DDATE = ? ");
+            if ($mtxSth->execute($dataInUso)) {
+                my @count = $mtxSth->fetchall_arrayref();
+                if (! $count[0][0][0]) {
+                    $status = 1; # negozio chiusura effettuata
+                    $tableInUse = 'IDC_EOD';
+                    
+                    $mtxSth = $mtxDbh->prepare("select isnull(max(sequencenumber), 0) from IDC_EOD where DDATE = ? ");
+                    if ($mtxSth->execute($dataInUso)) {
+                        @count = $mtxSth->fetchall_arrayref();
+                        if ($count[0][0][0] == $maxSequenceNumber) {
+                            $status = 2;
+                        }
+                        
+                    }
+                }
+            }
+        } else {
+            my $mtxSth = $mtxDbh->prepare("select isnull(max(sequencenumber), 0) from IDC_EOD where DDATE = ? ");
+            if ($mtxSth->execute($dataInUso)) {
+                my @count = $mtxSth->fetchall_arrayref();
+                if ($count[0][0][0] == $maxSequenceNumber) {
+                    $status = 2;
+                }
+                
+            }
+        }
+        $sth = $dbh->prepare(qq{update mtx.eod set status = ?, modified_at = now() where ddate = ? and store = ?;});
+        $sth->execute($status, $dataInUso,$negozio);
+        $sth->finish();
+            
+        my $sql ="	select top 10000
                             REG, STORE, substring(convert(VARCHAR, DDATE, 120),1,10) 'DDATE', TTIME, SEQUENCENUMBER,
                             TRANS, TRANSSTEP, RECORDTYPE, RECORDCODE, USERNO, MISC, DATA
                         from $tableInUse
@@ -126,12 +156,12 @@ sub GetFiles {
             
         my $totale_corrente_importo = 0;
         my $totale_corrente_clienti = 0;
-        $mtxSth = $mtxDbh->prepare ($sql);
+        my $mtxSth = $mtxDbh->prepare ($sql);
         if ($mtxSth->execute($maxSequenceNumber, $dataInUso)) {
             # recupero i dati in una sola chiamata invece che ciclare
             my $dc = $mtxSth->fetchall_arrayref();
 
-            # faccio in modo che l'ultimo record caricato sia un "F" cos“ ho la certezza che ogni scontrino
+            # faccio in modo che l'ultimo record caricato sia un "F" così ho la certezza che ogni scontrino
             # sia completo.
             my $lastValidIndex = -1;
             for(my $i = @{$dc} - 1;$i >= 0;$i--) {
@@ -318,5 +348,7 @@ sub GetFiles {
         $mtxDbh->disconnect();
     
     }
+    
+    #print "Fine: $negozio, $dataInUso, $ip\n";
     return 1;
 }
