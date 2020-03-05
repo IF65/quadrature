@@ -77,8 +77,9 @@ my $sthArchivi = $dbhArchivi->prepare(qq{
         n.`societa` in ('02','05') and n.`codice` not like '00%' and n.`abilita`=1;
 });
 
+# inserimento dei lavori da eseguire
+#------------------------------------------------------------------------------------------------------------
 $sth = $dbh->prepare(qq{insert ignore into mtx.eod (ddate, store, storeDescription, ip, created_at, modified_at) values (?,?,?,?, now(), now());});
-
 my $dataInUso = $ultimaDataCaricata->clone();
 while (DateTime->compare_ignore_floating( $dataInUso, $dataCorrente ) <= 0) {
     if ($sthArchivi->execute($dataInUso->ymd('-'),$dataInUso->ymd('-'))) {
@@ -89,4 +90,26 @@ while (DateTime->compare_ignore_floating( $dataInUso, $dataCorrente ) <= 0) {
     
     $dataInUso->add( days => 1 );
 }
+
+
+# ricerca dei lavori terminati e non ancora completi dei dati di testata
+#   0 = caricamento giornata negozio ancora aperto
+#   1 = caricamento in corso ma giornata fiscalmente chiusa
+#   2 = giornata fiscalmente chiusa e completamente caricata
+#   3 = negozio non aperto al pubblico.
+#
+# cerco i negozi che abbiano stato = 2 e abbiano numero di scontrini (itemCount) = 0
+#------------------------------------------------------------------------------------------------------------
+$sth = $dbh->prepare(qq{
+    update mtx.eod as e join (select store, ddate, count(*) itemCount, sum(totalAmount) totalAmount, max(sequencenumber) maxSequenceNumber
+    from mtx.idc where recordtype = 'F' and recordcode1 = '1' group by 1,2) as i on e.store=i.store and e.ddate = i.ddate 
+    set e.`itemCount`=i.itemCount, e.`totalAmount`=i.totalAmount, e.`lastSequenceNumber`=i.maxSequenceNumber
+    where e.status = 2 and e.itemCount = 0 limit 200;
+}); # limito a 200 record alla volta per evitare: [The total number of locks exceeds the lock table size] (memory overflow)
+$sth->execute();
+$sth->finish();
+
+
+
+
 
