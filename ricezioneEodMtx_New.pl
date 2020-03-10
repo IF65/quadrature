@@ -64,7 +64,7 @@ if (! $semaforo) {
         my @thr =();
         for (my $i=0; $i<@negozi; $i++) {
             push @thr, threads->create('GetFiles', $negozi[$i], $negoziDaCaricare{$negozi[$i]}{'ip'}, $_);
-            #&GetFiles('0134', '11.0.34.11', $_); #DEBUG ONLY
+            #&GetFiles('3654', '192.168.154.11', $_); #DEBUG ONLY
         }
         
         #con l'istruzione join faccio in modo che l'esecuzione aspetti fino a che l'ultimo thread sia terminato
@@ -120,16 +120,17 @@ sub GetFiles {
             if ($mtxSth->execute($dataInUso)) {
                 my @count = $mtxSth->fetchall_arrayref();
                 if (! $count[0][0][0]) {
-                    $status = 1; # negozio chiusura effettuata
                     $tableInUse = 'IDC_EOD';
                     
                     $mtxSth = $mtxDbh->prepare("select isnull(max(sequencenumber), 0) from IDC_EOD where DDATE = ? ");
                     if ($mtxSth->execute($dataInUso)) {
-                        @count = $mtxSth->fetchall_arrayref();
-                        if ($count[0][0][0] == $maxSequenceNumber) {
-                            $status = 2;
-                        }
-                        
+                        my @countEod = $mtxSth->fetchall_arrayref();
+                        if ($count[0][0][0] == 0 && $countEod[0][0][0] != 0) {
+                            $status = 1;
+                            if ($countEod[0][0][0] == $maxSequenceNumber) {
+                                $status = 2;
+                            }
+                        } 
                     }
                 }
             }
@@ -283,7 +284,7 @@ sub GetFiles {
                         
                         if ($tipo =~ /V/) {
                             if ($dati =~ /((?:\+|\-)\d{9})$/) {
-                               $totaleVendita = $1 / 100; #lordo x aliquota 
+                               $prezzoUnitario = $1 / 100; #imponibile
                             }
                             
                             if ( $dc->[$i + 1][7] =~ /V/ && $dc->[$i + 1][8] =~ /0$/) {
@@ -291,7 +292,7 @@ sub GetFiles {
                                     $totaleImposta = $1 / 100; #imposta x aliquota 
                                 }
                             }
-                            $prezzoUnitario = $totaleVendita - $totaleImposta; #imponibile
+                            $totaleVendita = $prezzoUnitario + $totaleImposta; #lordo x aliquota 
                             $codiceIva = $codice2;
                         }
                         
