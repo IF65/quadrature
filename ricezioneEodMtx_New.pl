@@ -113,7 +113,7 @@ sub GetFiles {
         my $tableInUse = 'IDC';
         if ($dataInUso ne $dataCorrente->ymd('-')) {
             $status = 1;
-            $tableInUse = 'IDC_EOD';
+            $tableInUse = 'IDC_EOD';   
         }
         if ($status == 0) {
             my $mtxSth = $mtxDbh->prepare("select isnull(count(*), 0) from IDC where DDATE = ? ");
@@ -177,15 +177,15 @@ sub GetFiles {
             # se il @dc contiene righe posso caricare i dati
             if (@{$dc}) {
                  $sql = "insert into `mtx`.`idc` 
-                        (`reg`,`store`,`ddate`,`ttime`,`hour`,`sequencenumber`,`trans`,`transstep`,
-                        `recordtype`,`recordcode1`,`recordcode2`,`recordcode3`,`userno`,`misc`,`data`,
-                        `saleid`,`amount`,`totalamount`,`taxcode`,`totaltaxableamount`,`taxamount`,`barcode`,`quantita`,`totalpoints`,`paymentform`)
+                        (`reg`,`store`,`ddate`,`ttime`,`hour`,`sequencenumber`,`trans`,`transstep`,`recordtype`,
+                        `recordcode1`,`recordcode2`,`recordcode3`,`userno`,`misc`,`data`,`saleid`,`amount`,`totalamount`,
+                       `taxcode`,`totaltaxableamount`,`taxamount`,`barcode`,`quantita`,`totalpoints`,`paymentform`,`created_at`)
                     values
-                        (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,now())
                     on duplicate key update 
                         `reg` = ?,`store`= ?,`ddate`= ?,`ttime`= ?,`hour`= ?,`sequencenumber`= ?,`trans`= ?,`transstep`= ?,`recordtype`= ?,
-                        `recordcode1`= ?,`recordcode2`= ?,`recordcode3`= ?,`userno`= ?,`misc`= ?,`data`= ?,`saleid`= ?,
-                        `amount`= ?,`totalamount`= ?,`taxcode`= ?,`totaltaxableamount`= ?,`taxamount`= ?, `barcode`= ?,`quantita`= ?,`totalpoints`= ?,`paymentform`= ?;";
+                        `recordcode1`= ?,`recordcode2`= ?,`recordcode3`= ?,`userno`= ?,`misc`= ?,`data`= ?,`saleid`= ?,`amount`= ?,`totalamount`= ?,
+                        `taxcode`= ?,`totaltaxableamount`= ?,`taxamount`= ?, `barcode`= ?,`quantita`= ?,`totalpoints`= ?,`paymentform`= ?,`created_at` = now();";
                 my $sth = $dbh->prepare(qq{$sql});
                 
                 for (my $i=0;$i<@{$dc};$i++) {
@@ -289,7 +289,7 @@ sub GetFiles {
                             
                             if ( $dc->[$i + 1][7] =~ /V/ && $dc->[$i + 1][8] =~ /0$/) {
                                 if ($dc->[$i + 1][11] =~ /((?:\+|\-)\d{9})$/) {
-                                    $totaleImposta = $1 / 100; #imposta x aliquota 
+                                    $totaleImposta = $1 / 100; #imposta totale per l'aliquota indicata 
                                 }
                             }
                             $totaleVendita = $prezzoUnitario + $totaleImposta; #lordo x aliquota 
