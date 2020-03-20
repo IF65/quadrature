@@ -322,10 +322,8 @@ sub GetFiles {
                             }
 						}
                         
-                         if ($tipo =~ /^k$/) {
-							if ($misc =~ /^.{3}(.{13}$)/) {
-								$barcode = $1;
-							}
+                         if ($tipo =~ /^(k|w)$/) {
+							$barcode = $misc;
                             $barcode =~ s/\s//g;
 						}
 						
