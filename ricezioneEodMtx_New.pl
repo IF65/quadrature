@@ -323,7 +323,7 @@ sub GetFiles {
 						}
                         
                          if ($tipo =~ /^(k|w)$/) {
-							$barcode = $misc;
+							$barcode = $misc; #
                             $barcode =~ s/\s//g;
 						}
 						
