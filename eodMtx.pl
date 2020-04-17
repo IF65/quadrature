@@ -31,10 +31,12 @@ my $sth = $dbh->prepare(qq{
         `totalAmount` decimal(11,2) NOT NULL DEFAULT 0.00,
         `lastSequenceNumber` int(11) NOT NULL DEFAULT 0,
         `status` tinyint(4) NOT NULL DEFAULT 0,
+        `eod` tinyint(4) NOT NULL DEFAULT 0,
         `ip` varchar(15) NOT NULL DEFAULT '',
         `created_at` timestamp NULL DEFAULT NULL,
         `modified_at` timestamp NULL DEFAULT NULL,
-        PRIMARY KEY (`store`,`ddate`)
+        PRIMARY KEY (`store`,`ddate`),
+        KEY `eod` (`eod`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 });
 if (! $sth->execute()) {
@@ -91,20 +93,34 @@ while (DateTime->compare_ignore_floating( $dataInUso, $dataCorrente ) <= 0) {
     $dataInUso->add( days => 1 );
 }
 
-
-# ricerca dei lavori terminati e non ancora completi dei dati di testata
-#   0 = caricamento giornata negozio ancora aperto
-#   1 = caricamento in corso ma giornata fiscalmente chiusa
-#   2 = giornata fiscalmente chiusa e completamente caricata
+#   status (flag)
+#   0 = caricamento dati in attesa di cominciare o in corso 
+#   1 = caricamento in corso ma giornata fiscalmente chiusa (dati spostati da idc => idc_eod su mtx)
+#   2 = giornata fiscalmente chiusa e completamente caricata (è verificato che l'ultimo sequencenumber sia già stato caricato)
 #   3 = negozio non aperto al pubblico.
 #
-# cerco i negozi che abbiano stato = 2 e abbiano numero di scontrini (itemCount) = 0
+#   eod (flag)
+#   0 = la giornata è in caricamento o conclusa e il calcolo finale non è ancora stato fatto
+#   1 = la giornata è conclusa ed è stato fatto il calcolo finale degli importi
+#
+# cerco i negozi che non abbiano ancora fatto il calcolo finale (eod = 0)
 #------------------------------------------------------------------------------------------------------------
 $sth = $dbh->prepare(qq{
     update mtx.eod as e join (select store, ddate, count(*) itemCount, sum(totalAmount) totalAmount, max(sequencenumber) maxSequenceNumber
     from mtx.idc where recordtype = 'F' and recordcode1 = '1' group by 1,2) as i on e.store=i.store and e.ddate = i.ddate 
     set e.`itemCount`=i.itemCount, e.`totalAmount`=i.totalAmount, e.`lastSequenceNumber`=i.maxSequenceNumber
-    where e.status = 2 and e.itemCount = 0 limit 200;
+    where e.eod = 0 limit 200;
+}); # limito a 200 record alla volta per evitare: [The total number of locks exceeds the lock table size] (memory overflow)
+$sth->execute();
+$sth->finish();
+
+# cerco i negozi chiusi (status >= 2) che non abbiano ancora fatto il calcolo finale (eod = 0)
+#------------------------------------------------------------------------------------------------------------
+$sth = $dbh->prepare(qq{
+    update mtx.eod as e join (select store, ddate, count(*) itemCount, sum(totalAmount) totalAmount, max(sequencenumber) maxSequenceNumber
+    from mtx.idc where recordtype = 'F' and recordcode1 = '1' group by 1,2) as i on e.store=i.store and e.ddate = i.ddate 
+    set e.`itemCount`=i.itemCount, e.`totalAmount`=i.totalAmount, e.`lastSequenceNumber`=i.maxSequenceNumber, e.eod=1
+    where e.status >= 2 and e.eod = 0 limit 200;
 }); # limito a 200 record alla volta per evitare: [The total number of locks exceeds the lock table size] (memory overflow)
 $sth->execute();
 $sth->finish();
