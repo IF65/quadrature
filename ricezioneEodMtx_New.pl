@@ -28,55 +28,42 @@ if (! $dbh) {
     die "Errore durante la connessione al database Quadrature ($ip)!\n";
 }
 
-my $semaforo = 0;
-my $sth = $dbh->prepare("select ifnull(count(*),0) from `log`.`semaforo` where tipo =  1");
+# cerco le date in cui ci siano giornate da caricare
+my @dateCanGiornateDaCaricare = ();
+my $sth = $dbh->prepare("select distinct ddate from mtx.eod where status < 2 order by 1");
 if ($sth->execute()) {
-    $semaforo = $sth->fetchrow_array();
+    while (my $data = $sth->fetchrow_array()) {
+        push @dateCanGiornateDaCaricare, $data;
+    }
 }
-$sth->finish();
 
-if (! $semaforo) {
-    $sth = $dbh->prepare("insert into `log`.`semaforo` (`tipo`,`stato`) values (1, 100)");
-    $sth->execute();
-    $sth->finish();
-    
-    # cerco le date in cui ci siano giornate da caricare
-    my @dateCanGiornateDaCaricare = ();
-    my $sth = $dbh->prepare("select distinct ddate from mtx.eod where status < 2 order by 1");
-    if ($sth->execute()) {
-        while (my $data = $sth->fetchrow_array()) {
-            push @dateCanGiornateDaCaricare, $data;
+foreach( @dateCanGiornateDaCaricare ){
+    my %negoziDaCaricare = ();
+    my $sth = $dbh->prepare("select store, storeDescription, ip from mtx.eod where status < 2 and ddate = ? order by 1");
+    if ($sth->execute($_)) {
+        while (my @row = $sth->fetchrow_array()) {
+            $negoziDaCaricare{$row[0]} = {'descrizione' => $row[1], 'ip' => $row[2]};
         }
     }
-    
-    foreach( @dateCanGiornateDaCaricare ){
-        my %negoziDaCaricare = ();
-        my $sth = $dbh->prepare("select store, storeDescription, ip from mtx.eod where status < 2 and ddate = ? order by 1");
-        if ($sth->execute($_)) {
-            while (my @row = $sth->fetchrow_array()) {
-                $negoziDaCaricare{$row[0]} = {'descrizione' => $row[1], 'ip' => $row[2]};
-            }
-        }
-        $sth->finish();
-        
-        my @negozi = keys %negoziDaCaricare;
-        
-        my @thr =();
-        for (my $i=0; $i<@negozi; $i++) {
-            push @thr, threads->create('GetFiles', $negozi[$i], $negoziDaCaricare{$negozi[$i]}{'ip'}, $_);
-            #&GetFiles('3654', '192.168.154.11', $_); #DEBUG ONLY
-        }
-        
-        #con l'istruzione join faccio in modo che l'esecuzione aspetti fino a che l'ultimo thread sia terminato
-        for (my $j=0; $j<@thr; $j++) {
-            $thr[$j]->join();
-        }
-    }
-   
-    $sth = $dbh->prepare("delete from `log`.`semaforo` where tipo = 1;");
-    $sth->execute();
     $sth->finish();
+    
+    my @negozi = keys %negoziDaCaricare;
+    
+    my @thr =();
+    for (my $i=0; $i<@negozi; $i++) {
+        push @thr, threads->create('GetFiles', $negozi[$i], $negoziDaCaricare{$negozi[$i]}{'ip'}, $_);
+        #&GetFiles('3654', '192.168.154.11', $_); #DEBUG ONLY
+    }
+    
+    #con l'istruzione join faccio in modo che l'esecuzione aspetti fino a che l'ultimo thread sia terminato
+    for (my $j=0; $j<@thr; $j++) {
+        $thr[$j]->join();
+    }
 }
+
+$sth = $dbh->prepare("delete from `log`.`semaforo` where tipo = 1;");
+$sth->execute();
+$sth->finish();
 
 $dbh->disconnect();
 
