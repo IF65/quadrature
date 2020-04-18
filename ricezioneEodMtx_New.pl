@@ -166,13 +166,13 @@ sub GetFiles {
                  $sql = "insert into `mtx`.`idc` 
                         (`reg`,`store`,`ddate`,`ttime`,`hour`,`sequencenumber`,`trans`,`transstep`,`recordtype`,
                         `recordcode1`,`recordcode2`,`recordcode3`,`userno`,`misc`,`data`,`saleid`,`amount`,`totalamount`,
-                       `taxcode`,`totaltaxableamount`,`taxamount`,`barcode`,`quantita`,`totalpoints`,`paymentform`,`created_at`)
+                       `taxcode`,`totaltaxableamount`,`taxamount`,`barcode`,`quantita`,`totalpoints`,`paymentform`,`actioncode`,`created_at`)
                     values
-                        (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,now())
+                        (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,now())
                     on duplicate key update 
                         `reg` = ?,`store`= ?,`ddate`= ?,`ttime`= ?,`hour`= ?,`sequencenumber`= ?,`trans`= ?,`transstep`= ?,`recordtype`= ?,
                         `recordcode1`= ?,`recordcode2`= ?,`recordcode3`= ?,`userno`= ?,`misc`= ?,`data`= ?,`saleid`= ?,`amount`= ?,`totalamount`= ?,
-                        `taxcode`= ?,`totaltaxableamount`= ?,`taxamount`= ?, `barcode`= ?,`quantita`= ?,`totalpoints`= ?,`paymentform`= ?,`created_at` = now();";
+                        `taxcode`= ?,`totaltaxableamount`= ?,`taxamount`= ?, `barcode`= ?,`quantita`= ?,`totalpoints`= ?,`paymentform`= ?,`actioncode`= ?, `created_at` = now();";
                 my $sth = $dbh->prepare(qq{$sql});
                 
                 for (my $i=0;$i<@{$dc};$i++) {
@@ -209,6 +209,7 @@ sub GetFiles {
                         my $quantita = 0;
                         my $totalePunti = 0;
                         my $formaPagamento = '';
+                        my $actionCode = '';
                         if ($tipo =~ /^S$/) {
                             if ($dc->[$i+2][11] =~ /^\:(\d{4})/) {
                                 $numeroVendita = $1 * 1;
@@ -299,6 +300,10 @@ sub GetFiles {
 							if ($dati =~ /((?:\+|\-)\d{9})$/) {
                                     $totaleVendita = $1 / 100; #totale scontrino
                             }
+                            
+                            if ($misc =~ /^:(\d\d)/) {
+                                    $actionCode = $1; #action code
+                            }
 						}
                         
                         if ($tipo =~ /^T$/) {
@@ -318,11 +323,11 @@ sub GetFiles {
                             $cassa, $negozio, $data, $ora, $fasciaOraria, $sequenzaDc, $transazione, $sequenzaTransazione,
                             $tipo, $codice1, $codice2, $codice3, $utente, $misc, $dati,
                             $numeroVendita, $prezzoUnitario, $totaleVendita, $codiceIva, $totaleVenditaNettoSconti, $totaleImposta,  $barcode, $quantita,
-                            $totalePunti, $formaPagamento,
+                            $totalePunti, $formaPagamento, $actionCode,
                             $cassa, $negozio, $data, $ora, $fasciaOraria, $sequenzaDc, $transazione, $sequenzaTransazione,
                             $tipo, $codice1, $codice2, $codice3, $utente, $misc, $dati,
                             $numeroVendita, $prezzoUnitario, $totaleVendita, $codiceIva, $totaleVenditaNettoSconti, $totaleImposta, $barcode, $quantita,
-                            $totalePunti, $formaPagamento);
+                            $totalePunti, $formaPagamento, $actionCode);
                     }
                 }
             }            
