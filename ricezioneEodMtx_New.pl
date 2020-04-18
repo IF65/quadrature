@@ -301,7 +301,7 @@ sub GetFiles {
                                     $totaleVendita = $1 / 100; #totale scontrino
                             }
                             
-                            if ($misc =~ /^:(\d\d)/) {
+                            if ($dati =~ /^:(\d\d)/) {
                                     $actionCode = $1; #action code
                             }
 						}
