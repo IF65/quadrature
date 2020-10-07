@@ -214,7 +214,7 @@ sub GetFiles {
                             if ($dc->[$i+2][11] =~ /^\:(\d{4})/) {
                                 $numeroVendita = $1 * 1;
                             }
-                            if ($dc->[$i+1][11] =~ /^\:(\d{11})/) {
+                            if ($dc->[$i+1][11] =~ /^\:\d{4}(\d{7})/) {
                                 $codiceIva = $1 * 1;
                             }
                             my $idDettaglioIva = -1;
