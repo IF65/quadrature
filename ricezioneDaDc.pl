@@ -8,7 +8,7 @@ use DateTime;
 use Data::Dumper;
 use List::MoreUtils qw(uniq);
 use File::HomeDir;
-use File::Util;
+#use File::Util;
 
 # connessione al database quadrature per recuperare la lista dei negozi
 #------------------------------------------------------------------------------------------------------------
@@ -19,7 +19,7 @@ my $pw      = 'mela';
 # default path
 #------------------------------------------------------------------------------------------------------------
 # my $path = File::HomeDir->my_desktop . File::Util::SL . 'caricamentoDC' . File::Util::SL;
-my $path = '/caricamentoDC/';
+my $path = 'C:\Users\utente.quadrature\Desktop\caricamentoDC';
 unless(-e $path or mkdir $path) {die "Impossibile creare la cartella $path: $!\n";};
 
 # elenco file presenti nella directory di default
@@ -29,8 +29,8 @@ opendir my($DIR), $path or die "Non ? stato possibile aprire la directory $path:
 @elencoFiles = sort {$a cmp $b} grep { /^\d{4}_\d{8}_\d{6}_DC\.TXT$/ } readdir $DIR;
 closedir $DIR;
         
-#$dbh = DBI->connect("dbi:ODBC:Driver={MySQL ODBC 5.3 Unicode Driver};Server=localhost;UID=root;PWD=mela");
-my $dbh = DBI->connect("DBI:mysql:mtx:$ip", $user, $pw);
+my $dbh = DBI->connect("dbi:ODBC:Driver={MySQL ODBC 5.3 Unicode Driver};Server=localhost;UID=root;PWD=mela");
+#my $dbh = DBI->connect("DBI:mysql:mtx:$ip", $user, $pw);
 if (! $dbh) {
     die "Errore durante la connessione al database $ip!\n";
 }
@@ -49,8 +49,14 @@ foreach my $fileName (@elencoFiles) {
      
     my $count = $dbh->selectrow_array('select count(*) from mtx.idc where store = ? and ddate = ?', undef, ($store, "20$year-$month-$day"));
     
+    #if ($count) {
+    #    my $sql = "delete from `mtx`.`idc` where store = ? and ddate = ?;";
+    #    my $sth = $dbh->prepare(qq{$sql});
+    #    $sth->execute($store, "20$year-$month-$day");
+    #}
+    
     my @dc = ();
-    if (!$count && open my $fileHandler, "<:crlf", $path.$fileName) {
+    if (!$count && open my $fileHandler, "<:crlf", $path . "\\" . $fileName) {
         print "Caricamento negozio: $store, del 20$year-$month-$day\n";
         
         my $line;
@@ -148,7 +154,7 @@ foreach my $fileName (@elencoFiles) {
                     my $idDettaglioIva = -1;
                     my $j = $i + 3;
                     while ($j < @dc && $dc[$i][2] eq $dc[$j][2] && $dc[$i][5] eq $dc[$j][5] && $idDettaglioIva < 0) {
-                        if ($dc[$i + 2][11] eq $dc[$j][11] && $dc[$j][7] =~ /v/) {
+                        if (substr($dc[$i + 2][11],0,5) eq substr($dc[$j][11],0,5) && $dc[$j][7] =~ /v/) {
                             $idDettaglioIva = $j;
                         }
                         $j++;
@@ -158,6 +164,9 @@ foreach my $fileName (@elencoFiles) {
                             if ($dc[$idDettaglioIva - 1][11] =~ /^(\+|\-)\d{4}(\d{7})(\d{7})/  ) {
                                 $totaleImposta = ($1.$3) / 100;
                                 $totaleVenditaNettoSconti = ($1.$2) / 100;
+                            } elsif ($dc[$idDettaglioIva - 1][11] =~ /^\+\d{4}\-(\d{6})\-(\d{6})/  ) {
+                                $totaleImposta = $2 / 100;
+                                $totaleVenditaNettoSconti = $1 / 100; 
                             }
                         }
                     }
@@ -286,4 +295,3 @@ foreach my $fileName (@elencoFiles) {
 }
 
 $dbh->disconnect();
-  

@@ -175,6 +175,10 @@ sub GetFiles {
                         `taxcode`= ?,`totaltaxableamount`= ?,`taxamount`= ?, `barcode`= ?,`quantita`= ?,`totalpoints`= ?,`paymentform`= ?,`actioncode`= ?, `created_at` = now();";
                 my $sth = $dbh->prepare(qq{$sql});
                 
+                my $sqlBiz = "insert ignore into `mtx`.`biz` (`store`,`ddate`,`reg`,`trans`,`transstep`,`ttime`,`idBiz`,`ddateBiz`,`plu`,`weight`,`prize`,`prizePerKg`)
+                              values (?,?,?,?,?,?,?,?,?,?,?,?)";
+                my $sthBiz = $dbh->prepare(qq{$sqlBiz});
+                
                 for (my $i=0;$i<@{$dc};$i++) {
                     my $tipo = $dc->[$i][7];
                     my $codice1 = '';
@@ -220,7 +224,7 @@ sub GetFiles {
                             my $idDettaglioIva = -1;
                             my $j = $i + 3;
                             while ($j < @{$dc} && $dc->[$i][2] eq $dc->[$j][2] && $dc->[$i][5] eq $dc->[$j][5] && $idDettaglioIva < 0) {
-                                if ($dc->[$i + 2][11] eq $dc->[$j][11] && $dc->[$j][7] =~ /v/) {
+                                if (substr($dc->[$i + 2][11],0,5) eq substr($dc->[$j][11],0,5) && $dc->[$j][7] =~ /v/) {
                                     $idDettaglioIva = $j;
                                 }
                                 $j++;
@@ -230,6 +234,9 @@ sub GetFiles {
                                     if ($dc->[$idDettaglioIva - 1][11] =~ /^(\+|\-)\d{4}(\d{7})(\d{7})/  ) {
                                         $totaleImposta = ($1.$3) / 100;
                                         $totaleVenditaNettoSconti = ($1.$2) / 100;
+                                    } elsif ($dc->[$idDettaglioIva - 1][11] =~ /^\+\d{4}\-(\d{6})\-(\d{6})/  ) {
+                                        $totaleImposta = $2 / 100;
+                                        $totaleVenditaNettoSconti = $1 / 100; 
                                     }
                                 }
                             }
@@ -247,6 +254,17 @@ sub GetFiles {
                                     $quantita = $1 * 1;
                                     $prezzoUnitario = $2 / 100;
                                     $totaleVendita = $prezzoUnitario * $quantita;
+                            }
+                            
+                            if ($dc->[$i+3][7] =~ /^i$/ && $dc->[$i + 3][8] =~ /^..3$/) {
+                                if ($dc->[$i+3][11] =~ /^\:(\d{2})(\d{2})(\d{2})\:(.{6})/) {
+                                    my $dataBiz = '20' . $1 . '-' . $2 . '-' . $3;
+                                    my $idBiz = $4 * 1;
+                                    if ($barcode =~ /^21(\d{4})\d{7}$/) {
+                                        $sthBiz->execute($negozio, $data, $cassa, $transazione, $sequenzaTransazione, $ora, $idBiz, $dataBiz, $1,
+                                                         sprintf("%.0f", $quantita * 1000),sprintf("%.0f", $totaleVendita * 100), sprintf("%.0f", $prezzoUnitario * 100));
+                                    }  
+                                }
                             }
                         }
     
