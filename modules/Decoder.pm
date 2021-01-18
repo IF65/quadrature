@@ -6,22 +6,69 @@ use warnings;
 use DBI;
 use DateTime;
 
+# parametri db
+# ---------------------------------------------
+my $ip   = '127.0.0.1'; #'10.11.14.128';
+my $user = 'root';
+my $pw   = 'mela';
+my $dbh;
 
-# parametri di connessione al database quadrature
-#------------------------------------------------------------------------------------------------------------
-my $ip      = '10.11.14.128';
-my $user    = 'root';
-my $pw      = 'mela';
-
-
-sub loadDC {
-    my($dc) = @_;
-    
-    my $dbh = DBI->connect("dbi:ODBC:Driver={MySQL ODBC 5.3 Unicode Driver};Server=localhost;UID=root;PWD=mela");
-    #my $dbh = DBI->connect("DBI:mysql:mtx:$ip", $user, $pw);
+INIT {
+    #$dbh = DBI->connect("dbi:ODBC:Driver={MySQL ODBC 5.3 Unicode Driver};Server=localhost;UID=root;PWD=mela");
+    $dbh = DBI->connect("DBI:mysql:mysql:$ip", $user, $pw);
     if (! $dbh) {
         die "Errore durante la connessione al database $ip!\n";
     }
+    
+    my $sth = $dbh->prepare('create database if not exists mtx');
+    $sth->execute() or die('Impossibile creare il datbase mtx');
+    
+    my $sql = "CREATE TABLE IF NOT EXISTS `mtx`.`idc` (
+                `reg` varchar(3) NOT NULL DEFAULT '',
+                `store` varchar(4) NOT NULL DEFAULT '',
+                `ddate` date NOT NULL,
+                `ttime` varchar(6) NOT NULL DEFAULT '000000',
+                `hour` varchar(2) NOT NULL,
+                `sequencenumber` int(11) unsigned NOT NULL,
+                `trans` smallint(5) unsigned NOT NULL,
+                `transstep` smallint(5) unsigned NOT NULL,
+                `recordtype` varchar(1) NOT NULL DEFAULT '',
+                `recordcode1` varchar(1) NOT NULL DEFAULT '',
+                `recordcode2` varchar(1) NOT NULL,
+                `recordcode3` varchar(1) NOT NULL,
+                `userno` smallint(5) unsigned NOT NULL,
+                `misc` varchar(16) NOT NULL DEFAULT '',
+                `data` varchar(19) NOT NULL DEFAULT '',
+                `saleid` smallint(5) unsigned NOT NULL DEFAULT 0,
+                `taxcode` tinyint(3) unsigned NOT NULL DEFAULT 0,
+                `amount` decimal(11,2) NOT NULL DEFAULT 0.00,
+                `totalamount` decimal(11,2) NOT NULL DEFAULT 0.00,
+                `totaltaxableamount` decimal(11,2) NOT NULL DEFAULT 0.00,
+                `taxamount` decimal(11,2) NOT NULL DEFAULT 0.00,
+                `barcode` varchar(13) NOT NULL DEFAULT '',
+                `quantita` decimal(7,3) NOT NULL DEFAULT 0.000,
+                `totalpoints` smallint(6) NOT NULL,
+                `paymentform` varchar(2) NOT NULL DEFAULT '',
+                `actioncode` varchar(2) DEFAULT NULL,
+                `created_at` timestamp NULL DEFAULT NULL,
+                PRIMARY KEY (`store`,`ddate`,`sequencenumber`),
+                KEY `recordtype` (`recordtype`),
+                KEY `store` (`store`,`ddate`),
+                KEY `barcode` (`barcode`),
+                KEY `created_at` (`created_at`),
+                KEY `store_2` (`store`,`ddate`,`reg`,`trans`),
+                KEY `incassi` (`ddate`,`store`,`recordtype`,`recordcode1`),
+                KEY `actioncode` (`actioncode`),
+                KEY `recordtype_2` (`recordtype`,`actioncode`),
+                KEY `recordtype_3` (`recordtype`,`paymentform`)
+              ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+
+    $sth = $dbh->prepare(qq{$sql});
+    $sth->execute() or die('Impossibile creare il la tabella idc');
+}
+
+sub loadDC {
+    my($dc) = @_;
     
     my $sql = "insert into `mtx`.`idc` 
                 (`reg`,`store`,`ddate`,`ttime`,`hour`,`sequencenumber`,`trans`,`transstep`,`recordtype`,
@@ -35,7 +82,7 @@ sub loadDC {
                 `taxcode`= ?,`totaltaxableamount`= ?,`taxamount`= ?, `barcode`= ?,`quantita`= ?,`totalpoints`= ?,`paymentform`= ?,`actioncode`= ?, `created_at` = now();";
         my $sth = $dbh->prepare(qq{$sql});
         
-        for (my $i=0;$i<@{$dc};$i++) {
+        for (my $i=0;$i<@{$dc};$i++) {  
             my $negozio = $dc->[$i][1];
             my $tipo = $dc->[$i][7];
             my $codice1 = '';
@@ -218,10 +265,9 @@ sub loadDC {
             }
         }
         $sth->finish();
-    }
-
-
-$dbh->disconnect();
-
-
 }
+
+END {
+        $dbh->disconnect();
+}
+1;
