@@ -141,7 +141,12 @@ sub GetFiles {
                         from $tableInUse
                         where sequencenumber > ? and DDATE = ?
                         order by sequencenumber;";
-            
+                        
+        $maxSequenceNumber -= 100;
+        if ($maxSequenceNumber < 0) {
+            $maxSequenceNumber = 0;
+        }
+        
         my $totale_corrente_importo = 0;
         my $totale_corrente_clienti = 0;
         my $mtxSth = $mtxDbh->prepare ($sql);
