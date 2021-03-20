@@ -40,14 +40,14 @@ foreach my $fileName (@elencoFiles) {
 	}
     
     my @dc = ();
-    if (open my $fileHandler, "<:crlf", $path . "\\" . $fileName) {
+    if (open my $fileHandler, "<:crlf", $path . "/" . $fileName) {
         print "Caricamento negozio: $store, del 20$year-$month-$day\n";
         
         my $line;
         my $sequenceNumber = 0;
         my $transstep = 0;
         while (!eof($fileHandler)) {
-            $line = <$fileHandler> ;
+            $line = <$fileHandler>;
             $line =~  s/\n$//ig;
             
             if ($line =~ /^(\d{4}):(\d{3}):($year)($month)($day):(\d{2})(\d{2})(\d{2}):(\d{4}):...:(.):(.{3}):(.{4}):(.{16})(.{19})$/ ) {
@@ -61,6 +61,8 @@ foreach my $fileName (@elencoFiles) {
                 my $userno = $12 * 1;
                 my $misc = $13;
                 my $data = $14;
+				
+				#$sequenceNumber = &getLastUsedSequenceNumber($store, $ddate, $reg, $trans);
                 
                 my @row = ();
                 push @row, $reg, $store, $ddate, $ttime, ++$sequenceNumber, $trans, ++$transstep, $recordType, $recordCode, $userno, $misc, $data;
@@ -80,7 +82,7 @@ foreach my $fileName (@elencoFiles) {
                     
     # se il @dc contiene righe posso caricare i dati
     if (@dc) {
-        &loadDC(\@dc);
+        &Decoder::loadDC(\@dc, $store);
     }
 }
 
